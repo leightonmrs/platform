@@ -6,8 +6,7 @@ const root=resolve('dist/server');
 const paths=['index.js',...(await readdir(root,{recursive:true})).filter(p=>/\.m?js$/.test(p)&&p!=='index.js')];
 const mf=new Miniflare({modules:paths.map(p=>({type:'ESModule',path:resolve(root,p)})),modulesRoot:root,compatibilityDate:'2026-05-15',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],r2Buckets:['BUCKET'],cf:false});
 const database=await mf.getD1Database('DB');
-const migration=await readFile('drizzle/0000_woozy_venom.sql','utf8');
-for(const sql of migration.split('--> statement-breakpoint')){if(sql.trim())await database.prepare(sql.trim()).run();}
+for(const file of (await readdir('drizzle')).filter(f=>f.endsWith('.sql')).sort()){const migration=await readFile('drizzle/'+file,'utf8');for(const sql of migration.split('--> statement-breakpoint')){if(sql.trim())await database.prepare(sql.trim()).run();}}
 const base='https://academy.test';
 try {
 const owner={'oai-authenticated-user-id':'qa-owner','oai-authenticated-user-email':'owner@example.test'};
@@ -34,6 +33,45 @@ const f=new FormData();f.append('file',new Blob(['%PDF-1.4\nQA only\n%%EOF'],{ty
 for(const l of state.course.modules.flatMap(m=>m.lessons).filter(l=>l.type!=='quiz'))await request('progress','POST',{lessonId:l.id,completed:true});const cert=await request('certificate');check(cert.status===200&&cert.data.includes('Подтверждение завершения курса'),'certificate unlocks after all requirements');
 const modified=structuredClone(state.course);modified.passScore=79;const reset=await request('course','PUT',{course:modified,revision:saved.data.revision});check(reset.data.resetQuizResults&&!(await request('state')).data.completed.includes('l12'),'assessment change invalidates old pass');
 await request('course','PUT',{course:state.course,revision:reset.data.revision});
+
+const catalog=(await request('catalog')).data;
+check(catalog.items.length===1&&catalog.items[0].id==='main','existing course preserved in catalogue');
+check(state.course.organization==='Институт Лабораторной Медицины КАМЛАБ','platform organization renamed');
+check((await request('catalog','POST',{title:'Student course'},student)).status===403,'students cannot create courses');
+const created=await request('catalog','POST',{title:'Контроль качества'});check(created.status===201,'author can add another course');
+const cid=created.data.id,route=p=>`${p}?courseId=${cid}`;
+const draft=(await request(route('state'))).data;
+check(!draft.course.commerce.published,'new course starts as draft');
+check((await request('catalog','GET',undefined,student)).data.items.length===1,'draft hidden from students');
+check((await request(route('state'),'GET',undefined,student)).status===404,'draft lessons blocked server-side');
+const paidCourse=structuredClone(state.course);paidCourse.title='Контроль качества';paidCourse.commerce={priceKzt:15000,paymentUrl:'',published:true,category:'Менеджмент качества'};
+let put=await request(route('course'),'PUT',{course:paidCourse,revision:draft.revision});check(put.status===200,'independent course content saved');
+check((await request(route('state'),'GET',undefined,student)).status===402,'unpaid course content blocked');
+check((await request(route('progress'),'POST',{lessonId:'l1',completed:true},student)).status===402,'unpaid progress writes blocked');
+check((await request('enroll','POST',{courseId:cid},student)).status===402,'paid enrollment cannot be forged');
+check((await request('orders','POST',{courseId:cid},student)).status===409,'checkout disabled until payment link configured');
+paidCourse.commerce.paymentUrl='https://payments.example.test/checkout';put=await request(route('course'),'PUT',{course:paidCourse,revision:put.data.revision});check(put.status===200,'author can configure payment link');
+const attachment=new FormData();attachment.append('file',new Blob(['%PDF-1.4\nCourse private\n%%EOF'],{type:'application/pdf'}),'private.pdf');const priv=await request(route('upload'),'POST',attachment);check(priv.status===200,'file attached to selected course');
+check((await request('files/'+priv.data.id,'GET',undefined,student)).status===403,'paid attachments protected');
+const order=await request('orders','POST',{courseId:cid},student);check(order.status===201&&order.data.amount_kzt===15000,'checkout stores authoritative price');
+const repeated=await request('orders','POST',{courseId:cid},student);check(repeated.data.id===order.data.id,'pending order reused');
+check((await request(route('state'),'GET',undefined,student)).status===402,'creating order does not grant course access');
+check((await request('orders','PATCH',{orderId:order.data.id,action:'paid'},student)).status===403,'student cannot confirm own payment');
+check((await request('orders','PATCH',{orderId:order.data.id,action:'paid'})).status===200,'author confirms verified payment');
+const unlocked=await request(route('state'),'GET',undefined,student);check(unlocked.status===200&&unlocked.data.completed.length===0,'confirmed payment grants clean course access');
+check((await request('files/'+priv.data.id,'GET',undefined,student)).status===200,'paid attachment unlocked with enrollment');
+await request(route('notes'),'PUT',{lessonId:'l1',body:'Paid course note'});
+check((await request('state')).data.notes.l1==='Личная тестовая заметка','existing notes unaffected by another course');
+check((await request(route('state'))).data.notes.l1==='Paid course note','notes isolated by course despite matching lesson IDs');
+check((await request(route('state'))).data.completed.length===0,'completion isolated by course');
+check((await request(route('state'))).data.attempts.length===0,'quiz history isolated by course');
+check((await request(route('certificate'))).status===403,'existing completion cannot unlock another course certificate');
+check((await request('orders','GET',undefined,{})).status===401,'order history requires authentication');
+const ownedOrders=(await request('orders','GET',undefined,student)).data;check(ownedOrders.items.length===1&&ownedOrders.items[0].status==='paid','learner sees confirmed own order');
+const outsider={'oai-authenticated-user-id':'qa-outsider','oai-authenticated-user-email':'outsider@example.test'};
+check((await request('orders','GET',undefined,outsider)).data.items.length===0,'order history isolated by user');
+check((await request('state')).data.course.modules.length===6,'original PCR programme preserved after catalogue operations');
+
 console.log(`${checks} smoke checks passed.`);
 
 } finally { await mf.dispose(); }

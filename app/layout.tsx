@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ПЦР Академия — учитесь, понимайте, применяйте",
-  description: "Учебная платформа по основам ПЦР. Уроки, материалы, тесты и персональный прогресс.",
+  title: "Институт Лабораторной Медицины КАМЛАБ",
+  description: "Каталог курсов Института Лабораторной Медицины КАМЛАБ. Уроки, материалы, тесты и персональный прогресс.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

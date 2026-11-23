@@ -1,6 +1,6 @@
-# ПЦР Академия
+# Институт Лабораторной Медицины КАМЛАБ
 
-A Russian language learning platform for a PCR fundamentals course.
+A Russian language learning platform with an editable multi-course catalogue and the existing PCR fundamentals course.
 
 Features: author course editor, modules and lessons, YouTube/Vimeo or uploaded video, protected attachments, quizzes graded by the server, private notes, persistent individual progress, learner results, JSON export/import and a printable completion confirmation.
 
@@ -25,4 +25,6 @@ The smoke suite runs the built Worker in an isolated Miniflare instance with dis
 
 ## Launch scope
 
-This version supports one course and native ChatGPT sign-in. Payments, email marketing, custom domains, multiple course catalogues, standalone password accounts and formal certificates are not configured. Long videos should use an external video host; single uploads are limited to 50 MB. Author changes require an explicit save. Quiz changes or a new pass threshold invalidate affected results. The current Site audience must be changed explicitly before inviting learners.
+This version supports multiple independent courses and native ChatGPT sign-in. Owners add draft courses, edit programmes, configure categories, set KZT prices, attach HTTPS payment links and publish courses. Free courses are accessible directly; paid course lessons, files, progress and certificates require an enrollment. A pending order does not grant access. A platform owner verifies receipt in the external payment service and confirms the order to grant access. No card data is collected and no payment is inferred from redirects. Payment-provider accounts, payment links, automatic payment webhooks, email marketing, custom domains, standalone password accounts and formal certificates are not configured. Long videos should use an external video host; single uploads are limited to 50 MB. Author changes require an explicit save. Quiz changes or a new pass threshold invalidate affected results. The current Site audience must be changed explicitly before inviting learners.
+
+Course-specific lesson storage keys preserve existing PCR progress and notes while separating records from other courses, including imports with matching lesson IDs. Additive migration 0001 creates enrollments/orders and associates existing assets with the main course. Original curriculum and historical data are retained.

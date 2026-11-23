@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:workers';
-import { db,json,fail,identity,idValid } from '../../../server';
+import { db,json,fail,identity,idValid,courseRecord,hasAccess } from '../../../server';
 export async function GET(req:Request,{params}:{params:Promise<{id:string}>}) {try{
- await identity(); const {id}=await params;
+ const user=await identity(); const {id}=await params;
  if(!idValid(id)) return json({error:'Файл не найден.'},404);
  const meta=await db().prepare('SELECT * FROM assets WHERE id=?').bind(id).first<any>();
  if(!meta||!env.BUCKET) return json({error:'Файл не найден.'},404);
+ const course=await courseRecord(meta.course_id??'main');if(!course||!await hasAccess(course,user))throw new Error('FORBIDDEN');
  const file=await env.BUCKET.get(id,{range:req.headers});
  if(!file) return json({error:'Файл не найден.'},404);
  const headers=new Headers({'Content-Type':meta.content_type,'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store','Accept-Ranges':'bytes','Content-Disposition':`${meta.content_type.startsWith('video/')||meta.content_type==='application/pdf'?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(meta.name)}`});

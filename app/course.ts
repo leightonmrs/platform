@@ -2,7 +2,9 @@ export type Resource = { id: string; title: string; url: string; kind: 'source' 
 export type Question = { id: string; prompt: string; options: string[]; correct: number; explanation: string };
 export type Lesson = { id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; resources: Resource[]; questions: Question[] };
 export type Module = { id: string; title: string; description: string; lessons: Lesson[] };
-export type Course = { title: string; subtitle: string; organization: string; author: string; level: string; passScore: number; modules: Module[] };
+export const PLATFORM_NAME = 'Институт Лабораторной Медицины КАМЛАБ';
+export type Commerce = { priceKzt: number; paymentUrl: string; published: boolean; category: string };
+export type Course = { commerce?: Commerce; title: string; subtitle: string; organization: string; author: string; level: string; passScore: number; modules: Module[] };
 export const SOURCE = {
   nhgri: { id: 'nhgri', title: 'NHGRI · Polymerase Chain Reaction', url: 'https://www.genome.gov/about-genomics/fact-sheets/Polymerase-Chain-Reaction-Fact-Sheet', kind: 'source' as const },
   miqe: { id: 'miqe', title: 'Bustin et al., 2025 · MIQE 2.0', url: 'https://pubmed.ncbi.nlm.nih.gov/40272429/', kind: 'source' as const },
@@ -16,7 +18,7 @@ const q = (id: string, prompt: string, options: string[], correct: number, expla
 export const initialCourse: Course = {
   title: 'ПЦР: от основ к уверенной интерпретации',
   subtitle: 'Разберитесь в принципах молекулярной диагностики, контроле качества и логике лабораторного заключения — в удобном темпе.',
-  organization: 'ПЦР Академия', author: 'Учебная редакция', level: 'Базовый уровень', passScore: 80,
+  organization: PLATFORM_NAME, author: 'Учебная редакция', level: 'Базовый уровень', passScore: 80,
   modules: [
     { id: 'm1', title: 'Как работает ПЦР', description: 'Понятный фундамент молекулярной диагностики.', lessons: [
       reading('l1', 'ПЦР: идея, возможности и границы', 7, '## Что вы узнаете\nПосле урока вы сможете объяснить, что именно копирует ПЦР и почему амплификация помогает обнаруживать выбранный участок ДНК.\n\n## Главная идея\nПолимеразная цепная реакция — метод многократного копирования выбранного фрагмента ДНК. Копий становится больше, поэтому этот фрагмент легче исследовать. Праймеры задают границы копируемого участка.\n\n## Где применяется метод\nПЦР используют в генетических исследованиях и лабораторной диагностике. Один и тот же общий принцип лежит в основе разных методов; их назначение и способ регистрации результата различаются.\n\n## Подумайте\nЧем обнаружение выбранного фрагмента отличается от исследования всего генома? Сформулируйте ответ в заметках.\n\n## Главное из урока\nПЦР отвечает на заранее поставленный вопрос о выбранной мишени. Она не представляет собой универсальный поиск всех возможных изменений.', [SOURCE.nhgri]),
@@ -60,3 +62,7 @@ export function safeUrl(s: string) {
   if (s.startsWith('/api/files/')) return /^\/api\/files\/[a-zA-Z0-9_-]{1,100}$/.test(s);
   try { const u = new URL(s); return u.protocol === 'https:' && !u.username && !u.password; } catch { return false; }
 }
+
+export function commerce(c: Course): Commerce { return { priceKzt: 0, paymentUrl: '', published: true, category: 'Лабораторная диагностика', ...c.commerce }; }
+export function lessonKey(courseId: string, lessonId: string) { return courseId === 'main' ? lessonId : `${courseId}:${lessonId}`; }
+export type CatalogItem = { id: string; title: string; subtitle: string; author: string; level: string; category: string; priceKzt: number; published: boolean; modules: number; lessons: number; minutes: number; access: boolean; enrolled: boolean; paymentReady: boolean; completed: number; moduleTitles: string[] };

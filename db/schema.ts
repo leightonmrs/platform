@@ -17,6 +17,15 @@ export const learners = sqliteTable('learners', {
   userId: text('user_id').primaryKey(), name: text('name').notNull(), joinedAt: text('joined_at').notNull(),
 });
 export const assets = sqliteTable('assets', {
-  id: text('id').primaryKey(), name: text('name').notNull(), contentType: text('content_type').notNull(),
+  id: text('id').primaryKey(), courseId: text('course_id').notNull().default('main'), name: text('name').notNull(), contentType: text('content_type').notNull(),
   size: integer('size').notNull(), createdAt: text('created_at').notNull(),
+});
+export const enrollments = sqliteTable('enrollments', {
+  courseId: text('course_id').notNull(), userId: text('user_id').notNull(),
+  joinedAt: text('joined_at').notNull(), source: text('source').notNull(),
+}, t => [primaryKey({ columns: [t.courseId, t.userId] })]);
+export const orders = sqliteTable('orders', {
+  id: text('id').primaryKey(), courseId: text('course_id').notNull(), userId: text('user_id').notNull(),
+  name: text('name').notNull(), amountKzt: integer('amount_kzt').notNull(),
+  status: text('status').notNull(), createdAt: text('created_at').notNull(), paidAt: text('paid_at'),
 });

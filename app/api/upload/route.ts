@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
-import { db,json,fail,requireOwner,sameOrigin } from '../../server';
+import { db,json,fail,requireOwner,sameOrigin,requestedCourseId } from '../../server';
 export async function POST(req:Request) {try{
- sameOrigin(req); await requireOwner();
+ sameOrigin(req); const courseId=requestedCourseId(req);await requireOwner(courseId);
  const limit=50*1024*1024;
  if(Number(req.headers.get('content-length'))>limit+50000) return json({error:'Максимальный размер файла — 50 МБ.'},413);
  const form=await req.formData(); const file=form.get('file');
@@ -13,6 +13,6 @@ export async function POST(req:Request) {try{
  if(!env.BUCKET) throw new Error('Хранилище файлов недоступно');
  const id=crypto.randomUUID(),name=file.name.slice(0,250);
  await env.BUCKET.put(id,file.stream(),{httpMetadata:{contentType:type}});
- try{await db().prepare('INSERT INTO assets (id,name,content_type,size,created_at) VALUES (?,?,?,?,?)').bind(id,name,type,file.size,new Date().toISOString()).run();}catch(e){await env.BUCKET.delete(id);throw e;}
+ try{await db().prepare('INSERT INTO assets (id,course_id,name,content_type,size,created_at) VALUES (?,?,?,?,?,?)').bind(id,courseId,name,type,file.size,new Date().toISOString()).run();}catch(e){await env.BUCKET.delete(id);throw e;}
  return json({id,name,url:`/api/files/${id}`,size:file.size,type});
  }catch(e){return fail(e);} }
