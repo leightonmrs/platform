@@ -80,6 +80,43 @@ const videoLesson=(await request('state')).data.course.modules[0].lessons[0];che
 const videoRead=await request('files/'+videoUpload.data.id,'GET',undefined,student);check(videoRead.status===200&&videoRead.headers['content-type']==='video/mp4'&&videoRead.headers['content-disposition'].startsWith('inline'),'uploaded video streams inline');
 const videoRange=await request('files/'+videoUpload.data.id,'GET',undefined,student,{Range:'bytes=2-6'});check(videoRange.status===206&&String(videoRange.data)==='23456'&&videoRange.headers['content-range']==='bytes 2-6/36','video byte ranges support seeking');
 
+const selfState=(await request('state')).data,exercise=selfState.course.modules[0].lessons[0].selfCheck;
+check(exercise?.id==='pcr-lesson-1-1'&&exercise.stages.length===3,'document self-check attached to lesson 1.1');
+check(exercise.stages.flatMap(s=>s.questions).length===5,'all five document questions are present');
+check(exercise.stages[0].questions[2].image.url==='/self-check/pcr-curves-lesson-1-1.png','source graph attached to question three');
+check(exercise.stages[1].table.rows[1][2]==='Появился сигнал мишени.','control table matches the document');
+check(exercise.stages.flatMap(s=>s.questions.map(q=>q.correct)).join(',')==='1,2,0,1,2','answer key matches Б В А Б В');
+const learnerState=(await request('state','GET',undefined,student)).data;
+check(learnerState.course.modules[0].lessons[0].selfCheck.stages.every(s=>s.questions.every(q=>!('correct'in q)&&!('explanation'in q))),'self-check answer keys hidden from learner state');
+const anonSelf=(await request('state','GET',undefined,{})).data;
+check(anonSelf.course.modules[0].lessons[0].selfCheck.stages.every(s=>s.questions.every(q=>!('correct'in q)&&!('explanation'in q))),'answer keys hidden from anonymous preview');
+check((await request('self-check?lessonId=l1','GET',undefined,{})).status===401,'self-check history requires sign in');
+const emptySelf=await request('self-check?lessonId=l1','GET',undefined,student);
+check(emptySelf.status===200&&emptySelf.data.latest===null&&emptySelf.data.history.length===0,'first attempt does not reveal feedback');
+check((await request('self-check','POST',{lessonId:'l1',answers:{'pcr11-q1':1}},student)).status===400,'incomplete self-check rejected');
+check((await request('self-check?lessonId=l2','GET',undefined,student)).status===404,'unconfigured lessons do not expose an exercise');
+const correctSelfAnswers=Object.fromEntries(exercise.stages.flatMap(s=>s.questions).map(q=>[q.id,q.correct]));
+const selfResult=await request('self-check','POST',{lessonId:'l1',answers:correctSelfAnswers},student);
+check(selfResult.status===200&&selfResult.data.correct===5&&selfResult.data.total===5&&selfResult.data.score===100,'five correct answers earn five points');
+check(selfResult.data.review.every(q=>q.isCorrect&&q.explanation),'comments returned only after submitted attempt');
+const selfHistory=await request('self-check?lessonId=l1','GET',undefined,student);
+check(selfHistory.data.history.length===1&&selfHistory.data.latest.correct===5,'saved attempt restores result and explanations');
+check((await request('self-check?lessonId=l1')).data.history.length===0,'self-check history isolated per user');
+const wrongSelfAnswers=Object.fromEntries(exercise.stages.flatMap(s=>s.questions).map(q=>[q.id,(q.correct+1)%q.options.length]));
+const wrongSelf=await request('self-check','POST',{lessonId:'l1',answers:wrongSelfAnswers},student);
+check(wrongSelf.data.correct===0&&wrongSelf.data.total===5,'wrong choices earn zero points without preventing a retry');
+const repeatedSelf=(await request('self-check?lessonId=l1','GET',undefined,student)).data;
+check(repeatedSelf.history.length===2&&repeatedSelf.bestScore===100,'retries retain history and best score');
+check(!(await request('state','GET',undefined,student)).data.completed.includes('l1'),'formative self-check does not change course completion rules');
+const latestCourse=(await request('state')).data;
+check((await request('course','PUT',{course:latestCourse.course,revision:latestCourse.revision})).status===200,'course editor preserves the imported self-check');
+check((await request('self-check?lessonId=l1','GET',undefined,student)).data.history.length===2,'saving an unchanged course retains self-check history');
+const changedCourse=(await request('state')).data;changedCourse.course.modules[0].lessons[0].selfCheck.stages[0].questions[0].prompt+=' ';await request('course','PUT',{course:changedCourse.course,revision:changedCourse.revision});
+check((await request('self-check?lessonId=l1','GET',undefined,student)).data.history.length===0,'changed exercise version does not reuse old scoring');
+const notEnrolled={'oai-authenticated-user-id':'qa-unpaid','oai-authenticated-user-email':'unpaid@example.test'};
+check((await request(route('self-check')+'&lessonId=l1','GET',undefined,notEnrolled)).status===402,'paid-course self-check history is access protected');
+check((await request(route('self-check'),'POST',{lessonId:'l1',answers:correctSelfAnswers},notEnrolled)).status===402,'unpaid students cannot submit protected self-checks');
+
 console.log(`${checks} smoke checks passed.`);
 
 } finally { await mf.dispose(); }

@@ -1,6 +1,10 @@
 export type Resource = { id: string; title: string; url: string; kind: 'source' | 'file' };
 export type Question = { id: string; prompt: string; options: string[]; correct: number; explanation: string };
-export type Lesson = { id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; videoAutoplay?: boolean; resources: Resource[]; questions: Question[] };
+export type SelfCheckImage = { url: string; alt: string; caption: string };
+export type SelfCheckQuestion = Question & { number: number; image?: SelfCheckImage };
+export type SelfCheckStage = { id: string; title: string; body: string; table?: { headers: string[]; rows: string[][] }; questions: SelfCheckQuestion[] };
+export type SelfCheck = { id: string; title: string; subtitle: string; instructions: string; closing: string; stages: SelfCheckStage[] };
+export type Lesson = { selfCheck?: SelfCheck | null; id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; videoAutoplay?: boolean; resources: Resource[]; questions: Question[] };
 export type Module = { id: string; title: string; description: string; lessons: Lesson[] };
 export const PLATFORM_NAME = 'Институт Лабораторной Медицины КАМЛАБ';
 export type Commerce = { priceKzt: number; paymentUrl: string; published: boolean; category: string };
@@ -66,3 +70,11 @@ export function safeUrl(s: string) {
 export function commerce(c: Course): Commerce { return { priceKzt: 0, paymentUrl: '', published: true, category: 'Лабораторная диагностика', ...c.commerce }; }
 export function lessonKey(courseId: string, lessonId: string) { return courseId === 'main' ? lessonId : `${courseId}:${lessonId}`; }
 export type CatalogItem = { id: string; title: string; subtitle: string; author: string; level: string; category: string; priceKzt: number; published: boolean; modules: number; lessons: number; minutes: number; access: boolean; enrolled: boolean; paymentReady: boolean; completed: number; moduleTitles: string[] };
+
+export function hideAnswerKeys(course: Course) {
+ for(const lesson of allLessons(course)){
+  lesson.questions=lesson.questions.map(({correct,explanation,...rest})=>rest as Question);
+  if(lesson.selfCheck)for(const stage of lesson.selfCheck.stages)stage.questions=stage.questions.map(({correct,explanation,...rest})=>rest as SelfCheckQuestion);
+ }
+ return course;
+}

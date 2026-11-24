@@ -15,6 +15,13 @@
       "when": 1795238549357,
       "tag": "0001_calm_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795497447053,
+      "tag": "0002_fuzzy_micromacro",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { attachDefaultSelfCheck } from './self-check-data';
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser, type ChatGPTUser } from './chatgpt-auth';
 import { initialCourse, commerce, PLATFORM_NAME, type Course } from './course';
@@ -29,5 +30,5 @@ export async function accessibleCourse(req:Request,user:ChatGPTUser|null) {
  return {id,row,course:parseCourse(row)};
 }
 export function fail(e: unknown) { const m = e instanceof Error ? e.message : ''; if (m === 'AUTH') return json({error:'Войдите, чтобы сохранить результат.'},401); if(m==='NOT_FOUND')return json({error:'Курс не найден или ещё не опубликован.'},404);if(m==='PAYMENT_REQUIRED')return json({error:'Для доступа к этому курсу необходимо оформить покупку в каталоге.'},402);if (m === 'FORBIDDEN' || m === 'ORIGIN') return json({error:'Недостаточно прав для этого действия.'},403); console.error('Academy API:', m); return json({error:'Не удалось выполнить действие. Попробуйте ещё раз.'},500); }
-export function parseCourse(row: { data: string } | null): Course {const c:Course=row?JSON.parse(row.data):structuredClone(initialCourse);if(c.organization==='ПЦР Академия')c.organization=PLATFORM_NAME;return c;}
+export function parseCourse(row: { data: string; id?: string } | null): Course {const c:Course=row?JSON.parse(row.data):structuredClone(initialCourse);if(c.organization==='ПЦР Академия')c.organization=PLATFORM_NAME;return attachDefaultSelfCheck(c,row?.id??(row===null?'main':''));}
 export function idValid(id: unknown) { return typeof id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(id); }
