@@ -1,6 +1,6 @@
 export type Resource = { id: string; title: string; url: string; kind: 'source' | 'file' };
 export type Question = { id: string; prompt: string; options: string[]; correct: number; explanation: string };
-export type Lesson = { id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; resources: Resource[]; questions: Question[] };
+export type Lesson = { id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; videoAutoplay?: boolean; resources: Resource[]; questions: Question[] };
 export type Module = { id: string; title: string; description: string; lessons: Lesson[] };
 export const PLATFORM_NAME = 'Институт Лабораторной Медицины КАМЛАБ';
 export type Commerce = { priceKzt: number; paymentUrl: string; published: boolean; category: string };

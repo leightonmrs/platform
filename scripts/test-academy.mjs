@@ -12,7 +12,7 @@ try {
 const owner={'oai-authenticated-user-id':'qa-owner','oai-authenticated-user-email':'owner@example.test'};
 const student={'oai-authenticated-user-id':'qa-student','oai-authenticated-user-email':'student@example.test'};
 let checks=0;
-async function request(path,method='GET',body,user=owner,extra={}){const outgoing=new Request(base+'/api/'+path,{method,headers:{...user,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{}),...extra},body:body?(body instanceof FormData?body:JSON.stringify(body)):undefined});const r=await mf.dispatchFetch(outgoing.url,{method,headers:Object.fromEntries(outgoing.headers),body:body?new Uint8Array(await outgoing.arrayBuffer()):undefined});const text=await r.text();let data;try{data=JSON.parse(text);}catch{data=text;}return {status:r.status,data};}
+async function request(path,method='GET',body,user=owner,extra={}){const outgoing=new Request(base+'/api/'+path,{method,headers:{...user,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{}),...extra},body:body?(body instanceof FormData?body:JSON.stringify(body)):undefined});const r=await mf.dispatchFetch(outgoing.url,{method,headers:Object.fromEntries(outgoing.headers),body:body?new Uint8Array(await outgoing.arrayBuffer()):undefined});const text=await r.text();let data;try{data=JSON.parse(text);}catch{data=text;}return {status:r.status,data,headers:Object.fromEntries(r.headers)};}
 function check(ok,label){assert.ok(ok,label);checks++;console.log('PASS',label);}
 const anon=await request('state','GET',undefined,{});if(anon.status!==200)console.log('Preview failure',anon);check(anon.status===200&&!anon.data.isOwner&&!anon.data.user,'anonymous preview');check(anon.data.course.modules.at(-1).lessons.at(-1).questions.every(q=>!('correct'in q)),'answers hidden from preview');
 let state=(await request('state')).data;check(state.isOwner&&state.course.modules.length===6,'owner initializes course');
@@ -71,6 +71,14 @@ const ownedOrders=(await request('orders','GET',undefined,student)).data;check(o
 const outsider={'oai-authenticated-user-id':'qa-outsider','oai-authenticated-user-email':'outsider@example.test'};
 check((await request('orders','GET',undefined,outsider)).data.items.length===0,'order history isolated by user');
 check((await request('state')).data.course.modules.length===6,'original PCR programme preserved after catalogue operations');
+
+const videoForm=new FormData();videoForm.append('file',new Blob(['0123456789abcdefghijklmnopqrstuvwxyz'],{type:'video/mp4'}),'lecture.mp4');
+const videoUpload=await request('upload','POST',videoForm);check(videoUpload.status===200&&videoUpload.data.type==='video/mp4','video upload accepted');
+let videoState=(await request('state')).data;videoState.course.modules[0].lessons[0].type='video';videoState.course.modules[0].lessons[0].videoUrl=videoUpload.data.url;videoState.course.modules[0].lessons[0].videoAutoplay=true;
+check((await request('course','PUT',{course:videoState.course,revision:videoState.revision})).status===200,'video and autoplay settings saved');
+const videoLesson=(await request('state')).data.course.modules[0].lessons[0];check(videoLesson.type==='video'&&videoLesson.videoAutoplay===true&&videoLesson.videoUrl===videoUpload.data.url,'video lesson persists with autoplay');
+const videoRead=await request('files/'+videoUpload.data.id,'GET',undefined,student);check(videoRead.status===200&&videoRead.headers['content-type']==='video/mp4'&&videoRead.headers['content-disposition'].startsWith('inline'),'uploaded video streams inline');
+const videoRange=await request('files/'+videoUpload.data.id,'GET',undefined,student,{Range:'bytes=2-6'});check(videoRange.status===206&&String(videoRange.data)==='23456'&&videoRange.headers['content-range']==='bytes 2-6/36','video byte ranges support seeking');
 
 console.log(`${checks} smoke checks passed.`);
 
