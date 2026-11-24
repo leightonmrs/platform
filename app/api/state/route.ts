@@ -1,5 +1,5 @@
 import { getChatGPTUser } from '../../chatgpt-auth';
-import { allLessons,lessonKey } from '../../course';
+import { allLessons,lessonKey,hideAnswerKeys } from '../../course';
 import { db,json,ensureMain,accessibleCourse,fail } from '../../server';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){try{
@@ -25,6 +25,6 @@ export async function GET(req:Request){try{
    learners=people.map(l=>{const s=scores.filter(a=>a.user_id===l.user_id&&keys.has(a.lesson_id));return {...l,completed:progresses.filter(p=>p.user_id===l.user_id&&keys.has(p.lesson_id)).length,best_score:s.length?Math.max(...s.map(a=>a.score)):null};});
   }
  }
- if(!isOwner)for(const l of ls)l.questions=l.questions.map(({correct,explanation,...rest})=>rest as any);
+ if(!isOwner)hideAnswerKeys(course);
  return json({course,courseId:id,revision:row?.revision??1,user:user?{name:user.displayName,email:user.email}:null,isOwner,completed,notes,attempts,learners});
  }catch(e){return fail(e);}}

@@ -29,3 +29,10 @@ export const orders = sqliteTable('orders', {
   name: text('name').notNull(), amountKzt: integer('amount_kzt').notNull(),
   status: text('status').notNull(), createdAt: text('created_at').notNull(), paidAt: text('paid_at'),
 });
+export const selfCheckAttempts = sqliteTable('self_check_attempts', {
+  id: text('id').primaryKey(), userId: text('user_id').notNull(),
+  courseId: text('course_id').notNull(), lessonId: text('lesson_id').notNull(),
+  exerciseId: text('exercise_id').notNull(), version: text('version').notNull(),
+  answers: text('answers').notNull(), correctCount: integer('correct_count').notNull(),
+  totalCount: integer('total_count').notNull(), createdAt: text('created_at').notNull(),
+});
