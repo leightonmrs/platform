@@ -4,7 +4,11 @@ export type SelfCheckImage = { url: string; alt: string; caption: string };
 export type SelfCheckQuestion = Question & { number: number; image?: SelfCheckImage };
 export type SelfCheckStage = { id: string; title: string; body: string; table?: { headers: string[]; rows: string[][] }; questions: SelfCheckQuestion[] };
 export type SelfCheck = { id: string; title: string; subtitle: string; instructions: string; closing: string; stages: SelfCheckStage[] };
-export type Lesson = { selfCheck?: SelfCheck | null; id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; videoAutoplay?: boolean; resources: Resource[]; questions: Question[] };
+export type CaseQuestion = { id: string; number: number; prompt: string; modelAnswer?: string };
+export type CaseStage = { id: string; title: string; body: string; table?: { headers: string[]; rows: string[][] }; rule?: string; questions: CaseQuestion[] };
+export type CaseSolution = { introduction: string; report: string; physician: string; checklist: string };
+export type CaseStudy = { id: string; title: string; subtitle: string; introduction: string; stages: CaseStage[]; solution?: CaseSolution };
+export type Lesson = { selfCheck?: SelfCheck | null; caseStudy?: CaseStudy | null; id: string; title: string; type: 'reading' | 'video' | 'quiz'; minutes: number; body: string; videoUrl: string; videoAutoplay?: boolean; resources: Resource[]; questions: Question[] };
 export type Module = { id: string; title: string; description: string; lessons: Lesson[] };
 export const PLATFORM_NAME = 'Институт Лабораторной Медицины КАМЛАБ';
 export type Commerce = { priceKzt: number; paymentUrl: string; published: boolean; category: string };
@@ -75,6 +79,7 @@ export function hideAnswerKeys(course: Course) {
  for(const lesson of allLessons(course)){
   lesson.questions=lesson.questions.map(({correct,explanation,...rest})=>rest as Question);
   if(lesson.selfCheck)for(const stage of lesson.selfCheck.stages)stage.questions=stage.questions.map(({correct,explanation,...rest})=>rest as SelfCheckQuestion);
+  if(lesson.caseStudy){delete lesson.caseStudy.solution;for(const stage of lesson.caseStudy.stages)stage.questions=stage.questions.map(({modelAnswer,...rest})=>rest);}
  }
  return course;
 }

@@ -36,3 +36,9 @@ export const selfCheckAttempts = sqliteTable('self_check_attempts', {
   answers: text('answers').notNull(), correctCount: integer('correct_count').notNull(),
   totalCount: integer('total_count').notNull(), createdAt: text('created_at').notNull(),
 });
+export const caseSubmissions = sqliteTable('case_submissions', {
+ id: text('id').primaryKey(), userId: text('user_id').notNull(),
+ courseId: text('course_id').notNull(), lessonId: text('lesson_id').notNull(),
+ caseId: text('case_id').notNull(), version: text('version').notNull(),
+ answers: text('answers').notNull(), createdAt: text('created_at').notNull(),
+});

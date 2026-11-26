@@ -117,6 +117,45 @@ const notEnrolled={'oai-authenticated-user-id':'qa-unpaid','oai-authenticated-us
 check((await request(route('self-check')+'&lessonId=l1','GET',undefined,notEnrolled)).status===402,'paid-course self-check history is access protected');
 check((await request(route('self-check'),'POST',{lessonId:'l1',answers:correctSelfAnswers},notEnrolled)).status===402,'unpaid students cannot submit protected self-checks');
 
+
+// Open-answer situational case. All records below use the disposable Miniflare database.
+const caseState=(await request('state')).data,caseExercise=caseState.course.modules[0].lessons[0].caseStudy;
+check(caseExercise?.id==='pcr-case-1-1'&&caseExercise.stages.length===2,'document case attached to existing PCR lesson');
+check(caseExercise.stages.flatMap(s=>s.questions).length===4&&caseExercise.stages[0].table.rows[0][2]==='К-013','four questions and identifier table match the source');
+for(const who of [student,{}]){
+ const publicCase=(await request('state','GET',undefined,who)).data.course.modules[0].lessons[0].caseStudy;
+ check(!publicCase.solution&&publicCase.stages.every(s=>s.questions.every(q=>!('modelAnswer' in q))),'case solution hidden from '+(who===student?'student':'anonymous')+' course state');
+}
+check((await request('case-study?lessonId=l1','GET',undefined,{})).status===401,'anonymous case history denied');
+const caseEmpty=(await request('case-study?lessonId=l1','GET',undefined,student)).data;
+check(caseEmpty.latest===null&&caseEmpty.history.length===0&&!JSON.stringify(caseEmpty).includes('modelAnswer'),'first case visit does not expose solutions');
+const caseAnswers=Object.fromEntries(caseExercise.stages.flatMap(s=>s.questions).map(q=>[q.id,'Мой ответ на вопрос '+q.number+'\nВторая строка.']));
+check((await request('case-study','POST',{lessonId:'l1',version:caseEmpty.version,answers:{'case11-q1':'  '}},student)).status===400,'blank or missing case answers rejected');
+check((await request('case-study','POST',{lessonId:'l1',version:caseEmpty.version,answers:{...caseAnswers,'case11-q1':'x'.repeat(8001)}},student)).status===400,'oversized case answer rejected');
+check((await request('case-study','POST',{lessonId:'l1',version:'stale',answers:caseAnswers},student)).status===409,'stale case version rejected');
+check((await request('case-study','POST',{lessonId:'l1',version:caseEmpty.version,answers:caseAnswers},student,{Origin:'https://elsewhere.test'})).status===403,'cross-origin case writes denied');
+const caseSubmit=await request('case-study','POST',{lessonId:'l1',version:caseEmpty.version,answers:{...caseAnswers,unused:'discard'}},student);
+check(caseSubmit.status===201&&caseSubmit.data.review.length===4&&caseSubmit.data.solution.report===caseExercise.solution.report,'submitted open answers unlock exact document breakdown');
+check(caseSubmit.data.answers['case11-q1']===caseAnswers['case11-q1']&&!('unused' in caseSubmit.data.answers)&&!('score' in caseSubmit.data),'answers retain multiline text without invented automatic grading');
+const caseRestored=(await request('case-study?lessonId=l1','GET',undefined,student)).data;
+check(caseRestored.latest.id===caseSubmit.data.id&&caseRestored.latest.answers['case11-q4']===caseAnswers['case11-q4'],'saved answers and breakdown restore after reload');
+check((await request('case-study?lessonId=l1')).data.latest===null,'case submissions isolated by user');
+check((await request('case-study?lessonId=l1&submissionId='+caseSubmit.data.id)).status===404,'another user cannot retrieve a submission by guessed ID');
+const caseRetry=await request('case-study','POST',{lessonId:'l1',version:caseEmpty.version,answers:{...caseAnswers,'case11-q1':'Повторное решение'}},student);
+check(caseRetry.status===201&&(await request('case-study?lessonId=l1','GET',undefined,student)).data.history.length===2,'case retry preserves previous submission');
+check((await request('case-study?lessonId=l1&submissionId='+caseSubmit.data.id,'GET',undefined,student)).data.latest.answers['case11-q1']===caseAnswers['case11-q1'],'learner can reopen an earlier saved solution');
+check(!(await request('state','GET',undefined,student)).data.completed.includes('l1'),'open-answer case leaves existing completion rules intact');
+const caseSave=(await request('state')).data;
+check((await request('course','PUT',{course:caseSave.course,revision:caseSave.revision})).status===200,'author save accepts and preserves case content');
+check((await request('case-study?lessonId=l1','GET',undefined,student)).data.history.length===2,'unchanged author save retains case submission history');
+check((await request('case-study?lessonId=l2','GET',undefined,student)).status===404,'case route rejects lessons without a case');
+check((await request(route('case-study')+'&lessonId=l1','GET',undefined,notEnrolled)).status===402,'paid case history protected by course access');
+check((await request(route('case-study'),'POST',{lessonId:'l1',version:caseEmpty.version,answers:caseAnswers},notEnrolled)).status===402,'unpaid case submissions denied');
+check((await request(route('case-study')+'&lessonId=l1','GET',undefined,student)).data.latest===null,'same lesson case in another course has independent history');
+const caseChanged=(await request('state')).data;caseChanged.course.modules[0].lessons[0].caseStudy.stages[0].questions[0].prompt+=' Новая редакция.';
+await request('course','PUT',{course:caseChanged.course,revision:caseChanged.revision});
+check((await request('case-study?lessonId=l1','GET',undefined,student)).data.latest===null,'changed case does not show a solution for an old version');
+
 console.log(`${checks} smoke checks passed.`);
 
 } finally { await mf.dispose(); }

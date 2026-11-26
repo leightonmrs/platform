@@ -6,7 +6,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import React from 'react';
 const nativeRequire=createRequire(import.meta.url);
 function compile(path,overrides={}){const source=readFileSync(path,'utf8'),out=ts.transpileModule(source,{fileName:path,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,m={exports:{}};new Function('require','module','exports',out)(name=>overrides[name]??nativeRequire(name),m,m.exports);return m.exports;}
-const course=compile('app/course.ts'),data=compile('app/self-check-data.ts',{'./course':course}),flow=compile('app/self-check-flow.ts'),service=compile('app/self-check-service.ts'),Component=compile('app/self-check.tsx',{'./self-check-flow':flow}).default;
+const course=compile('app/course.ts'),data=compile('app/self-check-data.ts',{'./course':course}),flow=compile('app/self-check-flow.ts'),service=compile('app/self-check-service.ts',{'./content-version':compile('app/content-version.ts')}),Component=compile('app/self-check.tsx',{'./self-check-flow':flow}).default;
 const exercise=data.lesson11SelfCheck,publicCourse=data.attachDefaultSelfCheck(structuredClone(course.initialCourse),'main');course.hideAnswerKeys(publicCourse);const publicExercise=publicCourse.modules[0].lessons[0].selfCheck;
 let checks=0;function check(ok,label){assert.ok(ok,label);checks++;console.log('PASS',label);}
 check(!flow.canOpenSelfCheckStage(exercise,{},1),'control data remain locked before questions one through three');
