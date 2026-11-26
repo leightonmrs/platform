@@ -7,7 +7,7 @@ async function context(req:Request,lessonId:unknown){
  const exercise=allLessons(course).find(l=>l.id===lessonId)?.selfCheck;if(!exercise)throw new Error('NOT_FOUND');
  return {user,courseId,lessonId:lessonId as string,exercise,version:await selfCheckVersion(exercise)};
 }
-function handle(e:unknown){if(e instanceof Error&&e.message==='INCOMPLETE')return json({error:'Выберите один ответ в каждом вопросе.'},400);return fail(e);}
+function handle(e:unknown){if(e instanceof Error&&e.message==='INCOMPLETE')return json({error:'Ответьте на все вопросы и проверьте, что каждое задание заполнено полностью.'},400);return fail(e);}
 export async function GET(req:Request){try{
  const {user,courseId,lessonId,exercise,version}=await context(req,new URL(req.url).searchParams.get('lessonId'));
  const rows=(await db().prepare('SELECT * FROM self_check_attempts WHERE user_id=? AND course_id=? AND lesson_id=? AND exercise_id=? AND version=? ORDER BY created_at DESC,id DESC LIMIT 100').bind(user.userId,courseId,lessonId,exercise.id,version).all()).results as any[];

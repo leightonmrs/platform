@@ -94,7 +94,7 @@ check((await request('self-check?lessonId=l1','GET',undefined,{})).status===401,
 const emptySelf=await request('self-check?lessonId=l1','GET',undefined,student);
 check(emptySelf.status===200&&emptySelf.data.latest===null&&emptySelf.data.history.length===0,'first attempt does not reveal feedback');
 check((await request('self-check','POST',{lessonId:'l1',answers:{'pcr11-q1':1}},student)).status===400,'incomplete self-check rejected');
-check((await request('self-check?lessonId=l2','GET',undefined,student)).status===404,'unconfigured lessons do not expose an exercise');
+check((await request('self-check?lessonId=l3','GET',undefined,student)).status===404,'unconfigured lessons do not expose an exercise');
 const correctSelfAnswers=Object.fromEntries(exercise.stages.flatMap(s=>s.questions).map(q=>[q.id,q.correct]));
 const selfResult=await request('self-check','POST',{lessonId:'l1',answers:correctSelfAnswers},student);
 check(selfResult.status===200&&selfResult.data.correct===5&&selfResult.data.total===5&&selfResult.data.score===100,'five correct answers earn five points');
@@ -155,6 +155,32 @@ check((await request(route('case-study')+'&lessonId=l1','GET',undefined,student)
 const caseChanged=(await request('state')).data;caseChanged.course.modules[0].lessons[0].caseStudy.stages[0].questions[0].prompt+=' Новая редакция.';
 await request('course','PUT',{course:caseChanged.course,revision:caseChanged.revision});
 check((await request('case-study?lessonId=l1','GET',undefined,student)).data.latest===null,'changed case does not show a solution for an old version');
+
+// Lesson 1.2 uses mixed response formats while retaining the original self-check route.
+const cycleState=(await request('state')).data,cycle=cycleState.course.modules[0].lessons[1].selfCheck;
+check(cycle.id==='pcr-lesson-1-2'&&cycle.stages.flatMap(s=>s.questions).length===6,'six source tasks attach to lesson 1.2');
+const publicCycle=(await request('state','GET',undefined,student)).data.course.modules[0].lessons[1].selfCheck;
+check(publicCycle.stages.every(s=>s.questions.every(q=>!('correct'in q)&&!('explanation'in q)&&!('rubric'in q))),'mixed question keys and open response rubric hidden before submission');
+const cycleAnswers={'pcr12-q1':[1,2,0],'pcr12-q2':[2,0,3,1],'pcr12-q3':1,'pcr12-q4':2,'pcr12-q5':[2,0],'pcr12-q6':'Начало задаёт второй праймер, конец — край матрицы.'};
+check((await request('self-check?lessonId=l2','GET',undefined,student)).data.latest===null,'first lesson 1.2 visit reveals no model answers');
+check((await request('self-check','POST',{lessonId:'l2',answers:{...cycleAnswers,'pcr12-q1':[1,1,0]}},student)).status===400,'duplicate events in ordering rejected');
+check((await request('self-check','POST',{lessonId:'l2',answers:{...cycleAnswers,'pcr12-q2':[2,0,3]}},student)).status===400,'incomplete matching rejected');
+check((await request('self-check','POST',{lessonId:'l2',answers:{...cycleAnswers,'pcr12-q5':[0,1,2]}},student)).status===400,'multiple choice requires exactly two selections');
+check((await request('self-check','POST',{lessonId:'l2',answers:{...cycleAnswers,'pcr12-q6':'   '}},student)).status===400,'blank written response rejected');
+const cycleResult=await request('self-check','POST',{lessonId:'l2',answers:cycleAnswers},student);
+check(cycleResult.status===200&&cycleResult.data.correct===5&&cycleResult.data.total===5&&cycleResult.data.score===100,'five auto-graded tasks earn five points despite six total tasks');
+const writtenReview=cycleResult.data.review.find(q=>q.id==='pcr12-q6');
+check(writtenReview.isCorrect===null&&writtenReview.rubric.length===2&&writtenReview.explanation.includes('второй праймер'),'written response reveals two source criteria without automatic grading');
+const cycleRestored=(await request('self-check?lessonId=l2','GET',undefined,student)).data;
+check(cycleRestored.latest.answers['pcr12-q2'].join(',')==='2,0,3,1'&&cycleRestored.latest.answers['pcr12-q6']===cycleAnswers['pcr12-q6'],'mixed answers and written text restore from saved attempt');
+check((await request('self-check?lessonId=l2')).data.history.length===0,'lesson 1.2 attempts remain user-private');
+const incompleteCycle={...cycleAnswers,'pcr12-q1':[1,0,2],'pcr12-q2':[0,2,3,1],'pcr12-q5':[0,1]};
+const partialCycle=await request('self-check','POST',{lessonId:'l2',answers:incompleteCycle},student);
+check(partialCycle.data.correct===2&&partialCycle.data.total===5,'partly correct ordering or matching earns zero for that task');
+const roundtrip=(await request('state')).data;
+check((await request('course','PUT',{course:roundtrip.course,revision:roundtrip.revision})).status===200,'editor accepts all new response types');
+check((await request('self-check?lessonId=l2','GET',undefined,student)).data.history.length===2,'author JSON roundtrip preserves lesson 1.2 history');
+check((await request('self-check?lessonId=l1','GET',undefined,student)).data.history.length===0,'lesson 1.2 attempts do not leak into lesson 1.1 history');
 
 console.log(`${checks} smoke checks passed.`);
 

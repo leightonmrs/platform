@@ -1,3 +1,4 @@
+import { lesson12SelfCheck } from './self-check-lesson12-data';
 import { allLessons,type Course,type SelfCheck } from './course';
 // Authored teaching content transcribed from KAMLAB_1_1_Samoproverka(1).docx.
 // Keep this module server-side; learner payloads must pass through hideAnswerKeys.
@@ -21,6 +22,6 @@ export const lesson11SelfCheck:SelfCheck={
  ],
 };
 export function attachDefaultSelfCheck(course:Course,courseId:string){
- if(courseId==='main'){const lesson=allLessons(course).find(l=>l.id==='l1');if(lesson&&lesson.selfCheck===undefined)lesson.selfCheck=structuredClone(lesson11SelfCheck);}
+ if(courseId==='main')for(const [id,exercise] of [['l1',lesson11SelfCheck],['l2',lesson12SelfCheck]] as const){const lesson=allLessons(course).find(l=>l.id===id);if(lesson&&lesson.selfCheck===undefined)lesson.selfCheck=structuredClone(exercise);}
  return course;
 }

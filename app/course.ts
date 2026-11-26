@@ -1,9 +1,17 @@
 export type Resource = { id: string; title: string; url: string; kind: 'source' | 'file' };
 export type Question = { id: string; prompt: string; options: string[]; correct: number; explanation: string };
 export type SelfCheckImage = { url: string; alt: string; caption: string };
-export type SelfCheckQuestion = Question & { number: number; image?: SelfCheckImage };
-export type SelfCheckStage = { id: string; title: string; body: string; table?: { headers: string[]; rows: string[][] }; questions: SelfCheckQuestion[] };
-export type SelfCheck = { id: string; title: string; subtitle: string; instructions: string; closing: string; stages: SelfCheckStage[] };
+type SelfCheckQuestionBase = { id: string; number: number; prompt: string; explanation: string; image?: SelfCheckImage; reference?: string };
+export type SelfCheckQuestion = SelfCheckQuestionBase & (
+ { kind?: 'single'; options: string[]; correct: number } |
+ { kind: 'order'; options: string[]; correct: number[] } |
+ { kind: 'matching'; options: string[]; roles: string[]; correct: number[] } |
+ { kind: 'multiple'; options: string[]; selectionCount: number; correct: number[] } |
+ { kind: 'open'; rubric: string[] }
+);
+export type SelfCheckAnswer = number | number[] | string;
+export type SelfCheckStage = { id: string; title: string; body: string; nextLabel?: string; table?: { headers: string[]; rows: string[][] }; questions: SelfCheckQuestion[] };
+export type SelfCheck = { id: string; title: string; subtitle: string; instructions: string; closing: string; durationLabel?: string; stages: SelfCheckStage[] };
 export type CaseQuestion = { id: string; number: number; prompt: string; modelAnswer?: string };
 export type CaseStage = { id: string; title: string; body: string; table?: { headers: string[]; rows: string[][] }; rule?: string; questions: CaseQuestion[] };
 export type CaseSolution = { introduction: string; report: string; physician: string; checklist: string };
@@ -78,7 +86,7 @@ export type CatalogItem = { id: string; title: string; subtitle: string; author:
 export function hideAnswerKeys(course: Course) {
  for(const lesson of allLessons(course)){
   lesson.questions=lesson.questions.map(({correct,explanation,...rest})=>rest as Question);
-  if(lesson.selfCheck)for(const stage of lesson.selfCheck.stages)stage.questions=stage.questions.map(({correct,explanation,...rest})=>rest as SelfCheckQuestion);
+  if(lesson.selfCheck)for(const stage of lesson.selfCheck.stages)stage.questions=stage.questions.map(q=>{const {correct,explanation,rubric,...rest}=q as SelfCheckQuestion&{correct?:unknown;rubric?:unknown};return rest as SelfCheckQuestion;});
   if(lesson.caseStudy){delete lesson.caseStudy.solution;for(const stage of lesson.caseStudy.stages)stage.questions=stage.questions.map(({modelAnswer,...rest})=>rest);}
  }
  return course;

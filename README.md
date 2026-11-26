@@ -14,6 +14,8 @@ Six modules contain eleven short, editable introductory texts and one ten-questi
 
 Lesson 1.1 also includes staged self-check questions and the two-part situational case “Кому принадлежит результат ПЦР” from the supplied teaching documents. Learners write four open responses before submitting to reveal the worked solution. Submitted responses and earlier solutions are private and stored in D1, scoped to user, course, lesson and content version. Open responses receive no automatic grade. The server overlays default exercises on the existing main-course lesson without replacing its saved text or video; JSON exports and author saves preserve the exercises. Student state and initial server rendering omit model answers. `/api/case-study` returns the solution only after a saved submission. Migration 0003 adds the submissions table without changing existing records.
 
+Lesson 1.2 includes six tasks from “Самопроверка по циклу ПЦР”, including the original primer diagram: event ordering, matching reaction participants to roles, two single-choice questions, a two-answer multiple-choice task and a written explanation. Tasks 1–5 each earn one point only when fully correct (maximum 5); task 6 reveals the two source criteria for manual comparison without an automatic grade. Mixed answers and explanations use the existing private, versioned self-check attempt storage. No new database migration is needed.
+
 ## Development and validation
 
 Use the Sites setup and build helpers. Generate migrations with `npm run db:generate`. After building, run:
@@ -22,6 +24,7 @@ Use the Sites setup and build helpers. Generate migrations with `npm run db:gene
 node node_modules/typescript/bin/tsc --noEmit
 node --import ./scripts/sites-env.mjs scripts/test-academy.mjs
 node scripts/test-self-check.mjs
+node scripts/test-self-check-lesson12.mjs
 node scripts/test-case-study.mjs
 ```
 
